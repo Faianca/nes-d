@@ -1,0 +1,4 @@
+name "nes"
+description "A minimal D application."
+copyright "Copyright © 2016, faianca"
+authors "faianca"
