@@ -1,5 +1,70 @@
+import std.conv;
+import console;
+import memory;
+
 class PPU
 {
+  this()
+  {
+      /*ppu := PPU{Memory: NewPPUMemory(console), console: console}
+      this.front = image.NewRGBA(image.Rect(0, 0, 256, 240))
+      this.back = image.NewRGBA(image.Rect(0, 0, 256, 240))*/
+      this.reset();
+  }
+
+  void reset()
+  {
+      this.Cycle = 340;
+	    this.ScanLine = 240;
+	    this.Frame = 0;
+	    this.writeControl(0);
+	    this.writeMask(0);
+	    this.writeOAMAddress(0);
+  }
+
+  void writeControl(byte value)
+  {
+      this.flagNameTable = (value >> 0) & 3;
+      this.flagIncrement = (value >> 2) & 1;
+      this.flagSpriteTable = (value >> 3) & 1;
+      this.flagBackgroundTable = (value >> 4) & 1;
+      this.flagSpriteSize = (value >> 5) & 1;
+      this.flagMasterSlave = (value >> 6) & 1;
+      this.nmiOutput = ((value>>7) & 1) == 1;
+      this.nmiChange();
+      // t: ....BA.. ........ = d: ......BA
+      this.t = (this.t & 0xF3FF) | ((to!ushort(value) & 0x03) << 10);
+  }
+
+  // $2003: OAMADDR
+  void writeOAMAddress(byte value)
+  {
+  	 this.oamAddress = value;
+  }
+
+  void nmiChange()
+  {
+    	bool nmi = this.nmiOutput && this.nmiOccurred;
+    	if (nmi && !this.nmiPrevious) {
+    		// TODO: this fixes some games but the delay shouldn't have to be so
+    		// long, so the timings are off somewhere
+    		this.nmiDelay = 15;
+    	}
+    	this.nmiPrevious = nmi;
+  }
+
+  // $2001: PPUMASK
+  void writeMask(byte value)
+  {
+    	this.flagGrayscale = (value >> 0) & 1;
+    	this.flagShowLeftBackground = (value >> 1) & 1;
+    	this.flagShowLeftSprites = (value >> 2) & 1;
+    	this.flagShowBackground = (value >> 3) & 1;
+    	this.flagShowSprites = (value >> 4) & 1;
+    	this.flagRedTint = (value >> 5) & 1;
+    	this.flagGreenTint = (value >> 6) & 1;
+    	this.flagBlueTint = (value >> 7) & 1;
+  }
 
   ubyte readRegister(ushort address)
   {
@@ -7,6 +72,13 @@ class PPU
   }
 
   private:
+    Memory memory;      // memory interface
+	  Console console;   // reference to parent object
+
+	  int Cycle;         // 0-340
+	  int ScanLine;      // 0-261, 0-239=visible, 240=post, 241-260=vblank, 261=pre
+	  ulong Frame;       // frame counter
+
     // storage variables
   	byte[32]   paletteData;
   	byte[2048] nameTableData;
